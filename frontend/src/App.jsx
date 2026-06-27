@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || API_URL;
 
 const themes = [
   { id: 'blue', label: 'Biru Medis', primary: '#2f80ed', accent: '#56ccf2' },
@@ -153,37 +154,70 @@ export default function App() {
     localStorage.setItem('elderly-theme', selectedTheme.id);
   }, [selectedTheme]);
 
-  useEffect(() => {
-    async function loadInitialData() {
-      try {
-        const [healthRes, readingsRes] = await Promise.all([
-          fetch(`${API_URL}/api/health`),
-          fetch(`${API_URL}/api/readings?limit=30`)
-        ]);
-        setApiStatus(healthRes.ok ? 'online' : 'offline');
+useEffect(() => {
+  async function checkApiHealth() {
+    try {
+      const healthRes = await fetch(`${API_URL}/api/health`);
+      const health = await healthRes.json();
+
+      if (healthRes.ok && health.ok === true) {
+        setApiStatus('online');
+      } else {
+        setApiStatus('offline');
+      }
+    } catch (error) {
+      console.error('API health error:', error);
+      setApiStatus('offline');
+    }
+  }
+
+  async function loadInitialData() {
+    try {
+      const readingsRes = await fetch(`${API_URL}/api/readings?limit=30`);
+
+      if (readingsRes.ok) {
         const readings = await readingsRes.json();
         setHistory(Array.isArray(readings) ? readings : []);
         setLatest(Array.isArray(readings) && readings.length ? readings[0] : null);
-      } catch (error) {
-        setApiStatus('offline');
+        return;
+      }
+
+      const latestRes = await fetch(`${API_URL}/api/latest`);
+      const latestData = await latestRes.json();
+
+      setLatest(latestData);
+      setHistory(latestData ? [latestData] : []);
+    } catch (error) {
+      console.error('Load data error:', error);
+
+      try {
+        const latestRes = await fetch(`${API_URL}/api/latest`);
+        const latestData = await latestRes.json();
+
+        setLatest(latestData);
+        setHistory(latestData ? [latestData] : []);
+      } catch (fallbackError) {
+        console.error('Fallback latest error:', fallbackError);
       }
     }
+  }
 
-    loadInitialData();
+  checkApiHealth();
+  loadInitialData();
 
-    const socket = io(API_URL, {
-      transports: ['websocket', 'polling']
-    });
+  const socket = io(SOCKET_URL, {
+    transports: ['websocket', 'polling']
+  });
 
-    socket.on('connect', () => setConnected(true));
-    socket.on('disconnect', () => setConnected(false));
-    socket.on('reading:new', (reading) => {
-      setLatest(reading);
-      setHistory((prev) => [reading, ...prev].slice(0, 30));
-    });
+  socket.on('connect', () => setConnected(true));
+  socket.on('disconnect', () => setConnected(false));
+  socket.on('reading:new', (reading) => {
+    setLatest(reading);
+    setHistory((prev) => [reading, ...prev].slice(0, 30));
+  });
 
-    return () => socket.disconnect();
-  }, []);
+  return () => socket.disconnect();
+}, []);
 
   async function handleSimulate() {
     setLoadingSimulate(true);
