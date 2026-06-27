@@ -262,7 +262,7 @@ useEffect(() => {
             </div>
             <h2>{currentStatus.note}</h2>
             <p className="status-desc">
-              Data berasal dari MAX30102, MAX30205, ESP32 MINI 3C, lalu diproses menggunakan logika fuzzy di backend.
+              Data berasal dari MAX30102, MLX90614, ESP32 MINI C3, lalu diproses menggunakan logika fuzzy di backend.
             </p>
 
             <div className="risk-score">
@@ -324,7 +324,7 @@ useEffect(() => {
           title="Suhu Tubuh"
           value={numberValue(latest?.temperature)}
           unit=" °C"
-          helper="Sensor MAX30205"
+          helper="Sensor MLX90614"
           danger={latest?.temperature >= 37.5 || latest?.temperature < 36}
         />
         <MetricCard
