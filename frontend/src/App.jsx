@@ -298,25 +298,7 @@ useEffect(() => {
         </div>
       </section>
 
-      <section className="theme-row">
-        <div>
-          <p>Warna Dashboard</p>
-          <h3>Pilih tema sesuai desain tugas akhir</h3>
-        </div>
-        <div className="theme-options">
-          {themes.map((item) => (
-            <button
-              key={item.id}
-              className={theme === item.id ? 'active' : ''}
-              onClick={() => setTheme(item.id)}
-              style={{ '--swatch-primary': item.primary, '--swatch-accent': item.accent }}
-            >
-              <span />
-              {item.label}
-            </button>
-          ))}
-        </div>
-      </section>
+
 
       <section className="metric-grid">
         <MetricCard
