@@ -1,0 +1,63 @@
+/*
+  Penataan dashboard setelah indikator baterai dihapus.
+  File ini sengaja dipisahkan agar styles.css utama tidak perlu diganti.
+*/
+
+/* Tiga kartu sensor memenuhi satu baris pada layar desktop. */
+.dashboard-shell .metric-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 20px !important;
+  align-items: stretch;
+}
+
+.dashboard-shell .metric-grid .metric-card {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+}
+
+/* Grafik fuzzy menggunakan seluruh lebar yang tersedia. */
+.dashboard-shell .content-grid {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 20px !important;
+}
+
+.dashboard-shell .content-grid .chart-card {
+  width: 100% !important;
+  min-width: 0;
+  grid-column: 1 / -1 !important;
+}
+
+.dashboard-shell .content-grid .chart-card svg {
+  display: block;
+  width: 100%;
+}
+
+/* Tablet: dua kartu di baris pertama, SpO2 memenuhi baris kedua. */
+@media (max-width: 900px) {
+  .dashboard-shell .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .dashboard-shell .metric-grid .metric-card:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* HP: semua kartu satu kolom. */
+@media (max-width: 640px) {
+  .dashboard-shell .metric-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 14px !important;
+  }
+
+  .dashboard-shell .metric-grid .metric-card:last-child {
+    grid-column: auto;
+  }
+
+  .dashboard-shell .content-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
