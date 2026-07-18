@@ -378,7 +378,7 @@ return () => {
           icon={Thermometer}
           title="Suhu Tubuh"
           value={numberValue(latest?.temperature)}
-          unit=" Ã‚Â°C"
+          unit={' \u00B0C'}
           helper="Sensor MLX90614"
           danger={latest?.temperature >= 37.5 || latest?.temperature < 36}
         />
@@ -392,7 +392,7 @@ return () => {
         />
         <MetricCard
           icon={Droplets}
-          title="SpOÃ¢â€šâ€š"
+          title="SpO2"
           value={numberValue(latest?.spo2)}
           unit=" %"
           helper="Kadar oksigen darah"
@@ -430,7 +430,7 @@ return () => {
                 <th>Status</th>
                 <th>Suhu</th>
                 <th>Heart Rate</th>
-                <th>SpOÃ¢â€šâ€š</th>
+                <th>SpO2</th>
                 <th>Baterai</th>
                 <th>Risiko</th>
               </tr>
@@ -443,7 +443,7 @@ return () => {
                   <tr key={`${item.id}-${item.time}`}>
                     <td>{itemTime.time}</td>
                     <td><span className={`table-status ${info.className}`}>{item.status}</span></td>
-                    <td>{item.temperature} Ã‚Â°C</td>
+                    <td>{item.temperature}{' \u00B0C'}</td>
                     <td>{item.heartRate} bpm</td>
                     <td>{item.spo2} %</td>
                     <td>{item.battery} %</td>
@@ -452,7 +452,7 @@ return () => {
                 );
               }) : (
                 <tr>
-                  <td colSpan="7" className="empty-state">Belum ada data. Klik Ã¢â‚¬Å“Test Data DummyÃ¢â‚¬Â atau aktifkan simulator.</td>
+                  <td colSpan="7" className="empty-state">Belum ada data. Klik "Test Data Dummy" atau aktifkan simulator.</td>
                 </tr>
               )}
             </tbody>
