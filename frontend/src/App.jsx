@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { io } from 'socket.io-client';
 import {
   Activity,
-  BatteryCharging,
   CalendarDays,
   Clock3,
   HeartPulse,
@@ -79,21 +78,6 @@ function MetricCard({ icon: Icon, title, value, unit, helper, danger }) {
   );
 }
 
-function BatteryBar({ value = 0 }) {
-  const safeValue = Math.min(Math.max(Number(value) || 0, 0), 100);
-  return (
-    <div className="battery-box">
-      <div className="battery-top">
-        <span>Baterai Perangkat</span>
-        <strong>{safeValue}%</strong>
-      </div>
-      <div className="battery-track">
-        <div className="battery-fill" style={{ width: `${safeValue}%` }} />
-      </div>
-      <small>{safeValue <= 20 ? 'Baterai rendah, segera isi ulang.' : 'Baterai masih mencukupi.'}</small>
-    </div>
-  );
-}
 
 function MiniChart({ data }) {
   const points = useMemo(() => {
@@ -398,18 +382,9 @@ return () => {
           helper="Kadar oksigen darah"
           danger={latest?.spo2 < 95}
         />
-        <MetricCard
-          icon={BatteryCharging}
-          title="Baterai"
-          value={numberValue(latest?.battery)}
-          unit=" %"
-          helper="LiPo 3.7V 800mAh"
-          danger={latest?.battery <= 20}
-        />
       </section>
 
       <section className="content-grid">
-        <BatteryBar value={latest?.battery || 0} />
         <MiniChart data={history} />
       </section>
 
@@ -431,7 +406,6 @@ return () => {
                 <th>Suhu</th>
                 <th>Heart Rate</th>
                 <th>SpO2</th>
-                <th>Baterai</th>
                 <th>Risiko</th>
               </tr>
             </thead>
@@ -446,13 +420,12 @@ return () => {
                     <td>{item.temperature}{' \u00B0C'}</td>
                     <td>{item.heartRate} bpm</td>
                     <td>{item.spo2} %</td>
-                    <td>{item.battery} %</td>
                     <td>{item.riskScore}</td>
                   </tr>
                 );
               }) : (
                 <tr>
-                  <td colSpan="7" className="empty-state">Belum ada data. Klik "Test Data Dummy" atau aktifkan simulator.</td>
+                  <td colSpan="6" className="empty-state">Belum ada data. Klik "Test Data Dummy" atau aktifkan simulator.</td>
                 </tr>
               )}
             </tbody>
