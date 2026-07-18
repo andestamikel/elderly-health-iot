@@ -316,14 +316,28 @@ return () => {
             </p>
 
             <div className="risk-score">
-              <div>
-                <span>Skor Risiko Fuzzy</span>
-                <strong>{numberValue(latest?.riskScore, '')}</strong>
-              </div>
-              <div className="risk-track">
-                <div style={{ width: `${Math.min(Number(latest?.riskScore) || 0, 100)}%` }} />
-              </div>
-            </div>
+  <div>
+    <span>Skor Fuzzy Mamdani</span>
+    <strong>
+      {Number.isFinite(Number(latest?.riskScore))
+        ? Number(latest.riskScore).toFixed(2)
+        : '-'}
+    </strong>
+  </div>
+
+  <div className="risk-track">
+    <div
+      style={{
+        width: `${
+          Math.max(
+            0,
+            Math.min(1, Number(latest?.riskScore) || 0)
+          ) * 100
+        }%`,
+      }}
+    />
+  </div>
+</div>
           </div>
 
           <div className="time-card">
@@ -355,7 +369,7 @@ return () => {
           icon={Thermometer}
           title="Suhu Tubuh"
           value={numberValue(latest?.temperature)}
-          unit=" °C"
+          unit=" Â°C"
           helper="Sensor MLX90614"
           danger={latest?.temperature >= 37.5 || latest?.temperature < 36}
         />
@@ -369,7 +383,7 @@ return () => {
         />
         <MetricCard
           icon={Droplets}
-          title="SpO₂"
+          title="SpOâ‚‚"
           value={numberValue(latest?.spo2)}
           unit=" %"
           helper="Kadar oksigen darah"
@@ -407,7 +421,7 @@ return () => {
                 <th>Status</th>
                 <th>Suhu</th>
                 <th>Heart Rate</th>
-                <th>SpO₂</th>
+                <th>SpOâ‚‚</th>
                 <th>Baterai</th>
                 <th>Risiko</th>
               </tr>
@@ -420,7 +434,7 @@ return () => {
                   <tr key={`${item.id}-${item.time}`}>
                     <td>{itemTime.time}</td>
                     <td><span className={`table-status ${info.className}`}>{item.status}</span></td>
-                    <td>{item.temperature} °C</td>
+                    <td>{item.temperature} Â°C</td>
                     <td>{item.heartRate} bpm</td>
                     <td>{item.spo2} %</td>
                     <td>{item.battery} %</td>
@@ -429,7 +443,7 @@ return () => {
                 );
               }) : (
                 <tr>
-                  <td colSpan="7" className="empty-state">Belum ada data. Klik “Test Data Dummy” atau aktifkan simulator.</td>
+                  <td colSpan="7" className="empty-state">Belum ada data. Klik â€œTest Data Dummyâ€ atau aktifkan simulator.</td>
                 </tr>
               )}
             </tbody>
