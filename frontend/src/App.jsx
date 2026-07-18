@@ -101,7 +101,7 @@ function MiniChart({ data }) {
     if (!latest.length) return '';
     const width = 360;
     const height = 90;
-    const scores = latest.map((item) => Number(item.riskScore) || 0);
+    const scores = latest.map((item) => fuzzyToPercent(item.riskScore) || 0);
     const max = 100;
     const min = 0;
     return scores.map((score, index) => {
@@ -115,8 +115,8 @@ function MiniChart({ data }) {
     <div className="chart-card">
       <div className="section-title">
         <div>
-          <p>Grafik Risiko</p>
-          <h3>Skor fuzzy realtime</h3>
+          <p>GRAFIK OUTPUT FUZZY MAMDANI</p>
+          <h3>Nilai output fuzzy realtime</h3>
         </div>
         <Activity size={22} />
       </div>
@@ -126,15 +126,24 @@ function MiniChart({ data }) {
         {points ? <polyline points={points} /> : null}
       </svg>
       <div className="chart-labels">
-        <span>0</span>
-        <span>40 Waspada</span>
-        <span>70 Bahaya</span>
-        <span>100</span>
+        <span>0,00 Bahaya</span>
+        <span>0,40 Waspada</span>
+        <span>0,70 Normal</span>
+        <span>1,00</span>
       </div>
     </div>
   );
 }
 
+function fuzzyToPercent(value) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(1, numericValue)) * 100;
+}
 export default function App() {
   const [latest, setLatest] = useState(null);
   const [history, setHistory] = useState([]);
@@ -369,7 +378,7 @@ return () => {
           icon={Thermometer}
           title="Suhu Tubuh"
           value={numberValue(latest?.temperature)}
-          unit=" Â°C"
+          unit=" Ã‚Â°C"
           helper="Sensor MLX90614"
           danger={latest?.temperature >= 37.5 || latest?.temperature < 36}
         />
@@ -383,7 +392,7 @@ return () => {
         />
         <MetricCard
           icon={Droplets}
-          title="SpOâ‚‚"
+          title="SpOÃ¢â€šâ€š"
           value={numberValue(latest?.spo2)}
           unit=" %"
           helper="Kadar oksigen darah"
@@ -421,7 +430,7 @@ return () => {
                 <th>Status</th>
                 <th>Suhu</th>
                 <th>Heart Rate</th>
-                <th>SpOâ‚‚</th>
+                <th>SpOÃ¢â€šâ€š</th>
                 <th>Baterai</th>
                 <th>Risiko</th>
               </tr>
@@ -434,7 +443,7 @@ return () => {
                   <tr key={`${item.id}-${item.time}`}>
                     <td>{itemTime.time}</td>
                     <td><span className={`table-status ${info.className}`}>{item.status}</span></td>
-                    <td>{item.temperature} Â°C</td>
+                    <td>{item.temperature} Ã‚Â°C</td>
                     <td>{item.heartRate} bpm</td>
                     <td>{item.spo2} %</td>
                     <td>{item.battery} %</td>
@@ -443,7 +452,7 @@ return () => {
                 );
               }) : (
                 <tr>
-                  <td colSpan="7" className="empty-state">Belum ada data. Klik â€œTest Data Dummyâ€ atau aktifkan simulator.</td>
+                  <td colSpan="7" className="empty-state">Belum ada data. Klik Ã¢â‚¬Å“Test Data DummyÃ¢â‚¬Â atau aktifkan simulator.</td>
                 </tr>
               )}
             </tbody>
