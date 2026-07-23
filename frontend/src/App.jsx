@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import {
   Activity,
@@ -10,7 +10,14 @@ import {
   Signal,
   Thermometer,
   Wifi,
-  Droplets
+  Droplets,
+  UserPlus,
+  Users,
+  Play,
+  Square,
+  Download,
+  RefreshCw,
+  ClipboardList
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
@@ -717,6 +724,321 @@ function FuzzyMembershipViewer({ latest }) {
   );
 }
 
+
+
+async function requestJson(path, options = {}) {
+  const response = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    }
+  });
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(payload?.message || `HTTP ${response.status}`);
+  }
+
+  return payload;
+}
+
+function formatFullDate(value) {
+  if (!value) return '-';
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(new Date(value));
+}
+
+function formatAverage(value, digits = 1) {
+  return Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : '-';
+}
+
+function SubjectSessionPanel({
+  latest,
+  participants,
+  selectedParticipantId,
+  onSelectParticipant,
+  participantForm,
+  onParticipantFormChange,
+  onCreateParticipant,
+  sessions,
+  activeSession,
+  sessionForm,
+  onSessionFormChange,
+  onStartSession,
+  onEndSession,
+  onViewSession,
+  onShowLive,
+  selectedSessionId,
+  busy,
+  message
+}) {
+  const selectedParticipant = participants.find(
+    (participant) => String(participant.id) === String(selectedParticipantId)
+  );
+  const currentDeviceId = latest?.deviceId || 'esp32-lansia-01';
+
+  return (
+    <section className="subject-session-card">
+      <div className="subject-session-heading">
+        <div>
+          <p>SUBJEK PENGUJIAN DAN SESI PENGUKURAN</p>
+          <h2>Pisahkan data setiap partisipan</h2>
+          <span>
+            Data MQTT otomatis masuk ke sesi yang sedang aktif. Gunakan kode
+            S01, S02, dan seterusnya sebagai identitas pengujian.
+          </span>
+        </div>
+        <div className={`active-session-pill ${activeSession ? 'is-active' : ''}`}>
+          <Signal size={18} />
+          {activeSession
+            ? `${activeSession.participantCode} sedang direkam`
+            : 'Tidak ada sesi aktif'}
+        </div>
+      </div>
+
+      <div className="subject-session-layout">
+        <div className="participant-manager">
+          <div className="subject-subheading">
+            <div className="subject-icon"><Users size={21} /></div>
+            <div>
+              <p>Pilih subjek</p>
+              <h3>Identitas partisipan</h3>
+            </div>
+          </div>
+
+          <label className="subject-field">
+            <span>Subjek yang dipilih</span>
+            <select
+              value={selectedParticipantId}
+              onChange={(event) => onSelectParticipant(event.target.value)}
+            >
+              <option value="">Pilih subjek pengujian</option>
+              {participants.map((participant) => (
+                <option key={participant.id} value={participant.id}>
+                  {participant.code} — {participant.alias}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {selectedParticipant ? (
+            <div className="selected-participant-summary">
+              <div>
+                <strong>{selectedParticipant.code}</strong>
+                <span>{selectedParticipant.alias}</span>
+              </div>
+              <small>
+                {selectedParticipant.age ? `${selectedParticipant.age} tahun` : 'Usia belum diisi'}
+                {' · '}
+                {selectedParticipant.gender || 'Jenis kelamin belum diisi'}
+                {' · '}
+                {selectedParticipant.sessionCount || 0} sesi
+              </small>
+            </div>
+          ) : null}
+
+          <details className="add-participant-details">
+            <summary><UserPlus size={17} /> Tambah subjek baru</summary>
+            <form className="participant-form" onSubmit={onCreateParticipant}>
+              <div className="two-field-grid">
+                <label className="subject-field">
+                  <span>Kode</span>
+                  <input
+                    value={participantForm.code}
+                    onChange={(event) => onParticipantFormChange('code', event.target.value.toUpperCase())}
+                    placeholder="Otomatis: S01"
+                    maxLength="20"
+                  />
+                </label>
+                <label className="subject-field">
+                  <span>Alias/nama singkat *</span>
+                  <input
+                    value={participantForm.alias}
+                    onChange={(event) => onParticipantFormChange('alias', event.target.value)}
+                    placeholder="Contoh: Partisipan 1"
+                    required
+                  />
+                </label>
+              </div>
+
+              <div className="two-field-grid">
+                <label className="subject-field">
+                  <span>Usia</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="120"
+                    value={participantForm.age}
+                    onChange={(event) => onParticipantFormChange('age', event.target.value)}
+                    placeholder="22"
+                  />
+                </label>
+                <label className="subject-field">
+                  <span>Jenis kelamin</span>
+                  <select
+                    value={participantForm.gender}
+                    onChange={(event) => onParticipantFormChange('gender', event.target.value)}
+                  >
+                    <option value="">Tidak diisi</option>
+                    <option value="L">Laki-laki</option>
+                    <option value="P">Perempuan</option>
+                    <option value="LAINNYA">Lainnya</option>
+                  </select>
+                </label>
+              </div>
+
+              <label className="subject-field">
+                <span>Catatan</span>
+                <textarea
+                  value={participantForm.notes}
+                  onChange={(event) => onParticipantFormChange('notes', event.target.value)}
+                  placeholder="Catatan singkat tanpa data pribadi sensitif"
+                  rows="2"
+                />
+              </label>
+
+              <button className="subject-primary-button" type="submit" disabled={busy}>
+                <UserPlus size={17} /> Simpan Subjek
+              </button>
+            </form>
+          </details>
+        </div>
+
+        <div className="session-manager">
+          <div className="subject-subheading">
+            <div className="subject-icon"><ClipboardList size={21} /></div>
+            <div>
+              <p>Kontrol sesi</p>
+              <h3>Perekaman data sensor</h3>
+            </div>
+          </div>
+
+          {activeSession ? (
+            <div className="active-session-box">
+              <div className="active-session-topline">
+                <div>
+                  <span className="recording-dot" />
+                  <strong>SESI AKTIF</strong>
+                </div>
+                <small>#{activeSession.id}</small>
+              </div>
+              <h4>{activeSession.participantCode} — {activeSession.participantAlias}</h4>
+              <p>Mulai: {formatFullDate(activeSession.startedAt)}</p>
+              <p>Perangkat: {activeSession.deviceId}</p>
+              {activeSession.condition ? <p>Kondisi: {activeSession.condition}</p> : null}
+              <button
+                className="end-session-button"
+                type="button"
+                onClick={onEndSession}
+                disabled={busy}
+              >
+                <Square size={17} /> Akhiri Sesi
+              </button>
+            </div>
+          ) : (
+            <div className="start-session-box">
+              <p>
+                Pilih subjek, tulis kondisi pengukuran, lalu tekan Mulai Sesi.
+                Data dari <strong>{currentDeviceId}</strong> akan disimpan ke sesi tersebut.
+              </p>
+
+              <label className="subject-field">
+                <span>Kondisi pengukuran</span>
+                <input
+                  value={sessionForm.condition}
+                  onChange={(event) => onSessionFormChange('condition', event.target.value)}
+                  placeholder="Contoh: duduk dan istirahat"
+                />
+              </label>
+
+              <label className="subject-field">
+                <span>Catatan sesi</span>
+                <textarea
+                  value={sessionForm.notes}
+                  onChange={(event) => onSessionFormChange('notes', event.target.value)}
+                  placeholder="Contoh: sensor dipasang pada pergelangan kiri"
+                  rows="2"
+                />
+              </label>
+
+              <button
+                className="start-session-button"
+                type="button"
+                onClick={onStartSession}
+                disabled={busy || !selectedParticipantId}
+              >
+                <Play size={17} /> Mulai Sesi Pengukuran
+              </button>
+            </div>
+          )}
+
+          {message ? <div className="subject-message">{message}</div> : null}
+        </div>
+      </div>
+
+      <div className="session-history-section">
+        <div className="session-history-heading">
+          <div>
+            <p>RIWAYAT SESI {selectedParticipant ? selectedParticipant.code : ''}</p>
+            <h3>Ringkasan pengujian setiap partisipan</h3>
+          </div>
+          <button className="secondary-session-button" type="button" onClick={onShowLive}>
+            <RefreshCw size={16} /> Tampilkan Data Live
+          </button>
+        </div>
+
+        <div className="session-list">
+          {sessions.length ? sessions.map((session) => (
+            <article
+              className={`session-item ${String(selectedSessionId) === String(session.id) ? 'selected' : ''}`}
+              key={session.id}
+            >
+              <div className="session-item-main">
+                <div className="session-number">#{session.id}</div>
+                <div>
+                  <strong>{session.participantCode} — {session.participantAlias}</strong>
+                  <span>{formatFullDate(session.startedAt)}</span>
+                  <small>
+                    {session.endedAt ? `Selesai ${formatFullDate(session.endedAt)}` : 'Sedang berlangsung'}
+                  </small>
+                </div>
+              </div>
+
+              <div className="session-stat-grid">
+                <div><span>Data</span><strong>{session.readingCount || 0}</strong></div>
+                <div><span>Rerata BPM</span><strong>{formatAverage(session.avgHeartRate)}</strong></div>
+                <div><span>Rerata SpO2</span><strong>{formatAverage(session.avgSpo2)}%</strong></div>
+                <div><span>Rerata Suhu</span><strong>{formatAverage(session.avgTemperature)}°C</strong></div>
+              </div>
+
+              <div className="session-item-actions">
+                <button type="button" onClick={() => onViewSession(session)}>
+                  <ClipboardList size={15} /> Lihat Data
+                </button>
+                <a href={`${API_URL}/api/sessions/${session.id}/export.csv`}>
+                  <Download size={15} /> CSV
+                </a>
+              </div>
+            </article>
+          )) : (
+            <div className="empty-session-list">
+              Belum ada sesi untuk subjek yang dipilih.
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function App() {
   const [latest, setLatest] = useState(null);
   const [history, setHistory] = useState([]);
@@ -724,11 +1046,51 @@ export default function App() {
   const [apiStatus, setApiStatus] = useState('checking');
   const [theme, setTheme] = useState(() => localStorage.getItem('elderly-theme') || 'blue');
   const [loadingSimulate, setLoadingSimulate] = useState(false);
+  const [participants, setParticipants] = useState([]);
+  const [selectedParticipantId, setSelectedParticipantId] = useState('');
+  const [sessions, setSessions] = useState([]);
+  const [activeSession, setActiveSession] = useState(null);
+  const [selectedSessionId, setSelectedSessionId] = useState(null);
+  const [historyTitle, setHistoryTitle] = useState('30 data terakhir (live)');
+  const [subjectBusy, setSubjectBusy] = useState(false);
+  const [subjectMessage, setSubjectMessage] = useState('');
+  const [participantForm, setParticipantForm] = useState({
+    code: '',
+    alias: '',
+    age: '',
+    gender: '',
+    notes: ''
+  });
+  const [sessionForm, setSessionForm] = useState({
+    condition: 'Duduk dan istirahat',
+    notes: ''
+  });
+  const selectedSessionRef = useRef(null);
 
   const selectedTheme = themes.find((item) => item.id === theme) || themes[0];
   const status = latest?.status || 'NORMAL';
   const currentStatus = statusInfo[status] || statusInfo.NORMAL;
   const dateTime = formatDateTime(latest?.time);
+
+  useEffect(() => {
+    selectedSessionRef.current = selectedSessionId;
+  }, [selectedSessionId]);
+
+  useEffect(() => {
+    loadParticipants();
+  }, []);
+
+  useEffect(() => {
+    if (selectedParticipantId) {
+      loadSessions(selectedParticipantId);
+    } else {
+      setSessions([]);
+    }
+  }, [selectedParticipantId]);
+
+  useEffect(() => {
+    loadActiveSession(latest?.deviceId || 'esp32-lansia-01');
+  }, [latest?.deviceId]);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--primary', selectedTheme.primary);
@@ -798,13 +1160,20 @@ const applyReading = (reading) => {
 
   setLatest(reading);
 
-  setHistory((prev) => {
-    const dataTanpaDuplikat = prev.filter(
-      (item) => String(item.id) !== String(reading.id)
-    );
+  const selectedSession = selectedSessionRef.current;
+  const readingBelongsToSelectedSession =
+    selectedSession && String(reading.sessionId) === String(selectedSession);
 
-    return [reading, ...dataTanpaDuplikat].slice(0, 30);
-  });
+  if (!selectedSession || readingBelongsToSelectedSession) {
+    setHistory((prev) => {
+      const dataTanpaDuplikat = prev.filter(
+        (item) => String(item.id) !== String(reading.id)
+      );
+
+      const maximumRows = selectedSession ? 5000 : 30;
+      return [reading, ...dataTanpaDuplikat].slice(0, maximumRows);
+    });
+  }
 };
 
 // Mendukung semua nama event backend
@@ -850,6 +1219,142 @@ return () => {
   socket.disconnect();
 };
 }, []);
+
+  async function loadParticipants(preferredParticipantId = null) {
+    try {
+      const data = await requestJson('/api/participants');
+      const safeData = Array.isArray(data) ? data : [];
+      setParticipants(safeData);
+
+      setSelectedParticipantId((current) => {
+        const preferred = preferredParticipantId ? String(preferredParticipantId) : '';
+        if (preferred && safeData.some((item) => String(item.id) === preferred)) return preferred;
+        if (current && safeData.some((item) => String(item.id) === String(current))) return current;
+        return safeData[0] ? String(safeData[0].id) : '';
+      });
+    } catch (error) {
+      console.error('Load participants error:', error);
+      setSubjectMessage(`Gagal mengambil subjek: ${error.message}`);
+    }
+  }
+
+  async function loadSessions(participantId) {
+    try {
+      const data = await requestJson(`/api/sessions?participantId=${encodeURIComponent(participantId)}&limit=100`);
+      setSessions(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Load sessions error:', error);
+      setSubjectMessage(`Gagal mengambil sesi: ${error.message}`);
+    }
+  }
+
+  async function loadActiveSession(deviceId) {
+    try {
+      const data = await requestJson(`/api/sessions/active?deviceId=${encodeURIComponent(deviceId)}`);
+      setActiveSession(data || null);
+    } catch (error) {
+      console.error('Load active session error:', error);
+    }
+  }
+
+  function changeParticipantForm(field, value) {
+    setParticipantForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function changeSessionForm(field, value) {
+    setSessionForm((current) => ({ ...current, [field]: value }));
+  }
+
+  async function handleCreateParticipant(event) {
+    event.preventDefault();
+    setSubjectBusy(true);
+    setSubjectMessage('');
+
+    try {
+      const created = await requestJson('/api/participants', {
+        method: 'POST',
+        body: JSON.stringify(participantForm)
+      });
+
+      setParticipantForm({ code: '', alias: '', age: '', gender: '', notes: '' });
+      await loadParticipants(created.id);
+      setSubjectMessage(`${created.code} berhasil ditambahkan.`);
+    } catch (error) {
+      setSubjectMessage(`Gagal menambah subjek: ${error.message}`);
+    } finally {
+      setSubjectBusy(false);
+    }
+  }
+
+  async function handleStartSession() {
+    if (!selectedParticipantId) return;
+    setSubjectBusy(true);
+    setSubjectMessage('');
+
+    try {
+      const created = await requestJson('/api/sessions', {
+        method: 'POST',
+        body: JSON.stringify({
+          participantId: Number(selectedParticipantId),
+          deviceId: latest?.deviceId || 'esp32-lansia-01',
+          condition: sessionForm.condition,
+          notes: sessionForm.notes
+        })
+      });
+
+      setActiveSession(created);
+      setSessionForm((current) => ({ ...current, notes: '' }));
+      await loadSessions(selectedParticipantId);
+      await handleViewSession(created);
+      setSubjectMessage(`Sesi #${created.id} dimulai untuk ${created.participantCode}.`);
+    } catch (error) {
+      setSubjectMessage(`Gagal memulai sesi: ${error.message}`);
+    } finally {
+      setSubjectBusy(false);
+    }
+  }
+
+  async function handleEndSession() {
+    if (!activeSession?.id) return;
+    setSubjectBusy(true);
+    setSubjectMessage('');
+
+    try {
+      const ended = await requestJson(`/api/sessions/${activeSession.id}/end`, {
+        method: 'POST'
+      });
+      setActiveSession(null);
+      await loadParticipants(selectedParticipantId);
+      await loadSessions(selectedParticipantId);
+      setSubjectMessage(`Sesi #${ended.id} telah diakhiri dan datanya tersimpan.`);
+    } catch (error) {
+      setSubjectMessage(`Gagal mengakhiri sesi: ${error.message}`);
+    } finally {
+      setSubjectBusy(false);
+    }
+  }
+
+  async function handleViewSession(session) {
+    try {
+      const readings = await requestJson(`/api/readings?sessionId=${session.id}&limit=5000`);
+      setSelectedSessionId(session.id);
+      setHistory(Array.isArray(readings) ? readings : []);
+      setHistoryTitle(`${session.participantCode} — Sesi #${session.id}`);
+    } catch (error) {
+      setSubjectMessage(`Gagal membuka data sesi: ${error.message}`);
+    }
+  }
+
+  async function handleShowLiveHistory() {
+    try {
+      const readings = await requestJson('/api/readings?limit=30');
+      setSelectedSessionId(null);
+      setHistory(Array.isArray(readings) ? readings : []);
+      setHistoryTitle('30 data terakhir (live)');
+    } catch (error) {
+      setSubjectMessage(`Gagal menampilkan data live: ${error.message}`);
+    }
+  }
 
   async function handleSimulate() {
     setLoadingSimulate(true);
@@ -944,7 +1449,26 @@ return () => {
         </div>
       </section>
 
-
+      <SubjectSessionPanel
+        latest={latest}
+        participants={participants}
+        selectedParticipantId={selectedParticipantId}
+        onSelectParticipant={setSelectedParticipantId}
+        participantForm={participantForm}
+        onParticipantFormChange={changeParticipantForm}
+        onCreateParticipant={handleCreateParticipant}
+        sessions={sessions}
+        activeSession={activeSession}
+        sessionForm={sessionForm}
+        onSessionFormChange={changeSessionForm}
+        onStartSession={handleStartSession}
+        onEndSession={handleEndSession}
+        onViewSession={handleViewSession}
+        onShowLive={handleShowLiveHistory}
+        selectedSessionId={selectedSessionId}
+        busy={subjectBusy}
+        message={subjectMessage}
+      />
 
       <section className="metric-grid">
         <MetricCard
@@ -983,15 +1507,24 @@ return () => {
         <div className="section-title">
           <div>
             <p>Riwayat Monitoring</p>
-            <h3>30 data terakhir</h3>
+            <h3>{historyTitle}</h3>
           </div>
-          <Signal size={22} />
+          <div className="history-header-actions">
+            {selectedSessionId ? (
+              <a href={`${API_URL}/api/sessions/${selectedSessionId}/export.csv`}>
+                <Download size={16} /> Ekspor CSV
+              </a>
+            ) : null}
+            <Signal size={22} />
+          </div>
         </div>
 
         <div className="table-wrapper">
           <table>
             <thead>
               <tr>
+                <th>Subjek</th>
+                <th>Sesi</th>
                 <th>Waktu</th>
                 <th>Status</th>
                 <th>Suhu</th>
@@ -1006,6 +1539,8 @@ return () => {
                 const info = statusInfo[item.status] || statusInfo.NORMAL;
                 return (
                   <tr key={`${item.id}-${item.time}`}>
+                    <td>{item.participantCode || '-'}</td>
+                    <td>{item.sessionId ? `#${item.sessionId}` : '-'}</td>
                     <td>{itemTime.time}</td>
                     <td><span className={`table-status ${info.className}`}>{item.status}</span></td>
                     <td>{item.temperature}{' \u00B0C'}</td>
@@ -1016,7 +1551,7 @@ return () => {
                 );
               }) : (
                 <tr>
-                  <td colSpan="6" className="empty-state">Belum ada data. Klik "Test Data Dummy" atau aktifkan simulator.</td>
+                  <td colSpan="8" className="empty-state">Belum ada data. Klik "Test Data Dummy" atau aktifkan simulator.</td>
                 </tr>
               )}
             </tbody>
