@@ -126,14 +126,28 @@ function MiniChart({ data }) {
   );
 }
 
-function fuzzyToPercent(value) {
+function fuzzyScore01(value) {
   const numericValue = Number(value);
 
-  if (!Number.isFinite(numericValue)) {
-    return 0;
+  if (!Number.isFinite(numericValue) || numericValue < 0 || numericValue > 1) {
+    return null;
   }
 
-  return Math.max(0, Math.min(1, numericValue)) * 100;
+  return numericValue;
+}
+
+function fuzzyStatusFromScore(value) {
+  const score = fuzzyScore01(value);
+
+  if (score === null) return 'MENUNGGU';
+  if (score < 0.4) return 'BAHAYA';
+  if (score < 0.7) return 'WASPADA';
+  return 'NORMAL';
+}
+
+function fuzzyToPercent(value) {
+  const score = fuzzyScore01(value);
+  return score === null ? 0 : score * 100;
 }
 
 const FUZZY_MEMBERSHIP_CONFIG = {
@@ -557,10 +571,9 @@ function FuzzyMembershipViewer({ latest }) {
     [latest?.heartRate, latest?.spo2, latest?.temperature]
   );
 
-  const backendScore = Number(latest?.riskScore);
-  const displayedScore = Number.isFinite(backendScore)
-    ? clampNumber(backendScore, 0, 1)
-    : visualization.calculatedScore;
+  const backendScore = fuzzyScore01(latest?.riskScore);
+  const displayedScore = backendScore ?? visualization.calculatedScore;
+  const displayedStatus = fuzzyStatusFromScore(displayedScore);
 
   const outputMemberships = Number.isFinite(displayedScore)
     ? getMembershipValues(
@@ -590,7 +603,7 @@ function FuzzyMembershipViewer({ latest }) {
         <div className="fuzzy-output-summary">
           <small>Output defuzzifikasi</small>
           <strong>{formatFuzzyValue(displayedScore, 2)}</strong>
-          <span>{latest?.status || 'MENUNGGU'}</span>
+          <span>{displayedStatus}</span>
         </div>
       </div>
 
@@ -1068,7 +1081,15 @@ export default function App() {
   const selectedSessionRef = useRef(null);
 
   const selectedTheme = themes.find((item) => item.id === theme) || themes[0];
-  const status = latest?.status || 'NORMAL';
+  const currentFuzzyVisualization = useMemo(
+    () => calculateFuzzyVisualization(latest),
+    [latest?.heartRate, latest?.spo2, latest?.temperature]
+  );
+  const backendFuzzyScore = fuzzyScore01(latest?.riskScore);
+  const displayFuzzyScore = backendFuzzyScore ?? currentFuzzyVisualization.calculatedScore;
+  const status = displayFuzzyScore === null
+    ? (latest?.status || 'NORMAL')
+    : fuzzyStatusFromScore(displayFuzzyScore);
   const currentStatus = statusInfo[status] || statusInfo.NORMAL;
   const dateTime = formatDateTime(latest?.time);
 
@@ -1406,9 +1427,9 @@ return () => {
   <div>
     <span>Skor Fuzzy Mamdani</span>
     <strong>
-      {Number.isFinite(Number(latest?.riskScore))
-        ? Number(latest.riskScore).toFixed(2)
-        : '-'}
+      {displayFuzzyScore === null
+        ? '-'
+        : Number(displayFuzzyScore).toFixed(2)}
     </strong>
   </div>
 
@@ -1416,10 +1437,7 @@ return () => {
     <div
       style={{
         width: `${
-          Math.max(
-            0,
-            Math.min(1, Number(latest?.riskScore) || 0)
-          ) * 100
+          Math.max(0, Math.min(1, displayFuzzyScore ?? 0)) * 100
         }%`,
       }}
     />
@@ -1537,6 +1555,7 @@ return () => {
               {history.length ? history.map((item) => {
                 const itemTime = formatDateTime(item.time);
                 const info = statusInfo[item.status] || statusInfo.NORMAL;
+                const itemFuzzyScore = fuzzyScore01(item.riskScore);
                 return (
                   <tr key={`${item.id}-${item.time}`}>
                     <td>{item.participantCode || '-'}</td>
@@ -1546,7 +1565,7 @@ return () => {
                     <td>{item.temperature}{' \u00B0C'}</td>
                     <td>{item.heartRate} bpm</td>
                     <td>{item.spo2} %</td>
-                    <td>{item.riskScore}</td>
+                    <td>{itemFuzzyScore === null ? 'format lama' : itemFuzzyScore.toFixed(2)}</td>
                   </tr>
                 );
               }) : (
