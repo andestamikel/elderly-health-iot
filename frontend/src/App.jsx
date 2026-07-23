@@ -1283,10 +1283,10 @@ socket.on('latest', applyReading);
 
 // Cadangan jika Socket.IO terlambat atau terputus
 const refreshTimer = window.setInterval(async () => {
-  // Socket.IO adalah jalur utama. Polling hanya dipakai saat socket terputus
-  // agar dua sumber data tidak saling menimpa dan membuat tampilan berkedip.
-  if (socket.connected) return;
-
+  // Polling tetap berjalan sebagai sinkronisasi realtime.
+  // Data invalid, duplikat, dan data lama tetap ditolak oleh applyReading().
+  // Ini mengatasi kondisi Socket.IO terlihat connected tetapi event baru
+  // tidak sampai ke browser melalui proxy/tunnel.
   try {
     const response = await fetch(
       `${API_URL}/api/latest?t=${Date.now()}`,
@@ -1311,7 +1311,7 @@ const refreshTimer = window.setInterval(async () => {
   } catch (error) {
     console.error('Gagal memperbarui data otomatis:', error);
   }
-}, 2000);
+}, 1000);
 
 return () => {
   window.clearInterval(refreshTimer);
