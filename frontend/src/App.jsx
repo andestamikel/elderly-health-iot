@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import {
-  Activity,
   CalendarDays,
   Clock3,
   HeartPulse,
@@ -112,46 +111,6 @@ function MetricCard({ icon: Icon, title, value, unit, helper, danger }) {
 }
 
 
-function MiniChart({ data }) {
-  const points = useMemo(() => {
-    const latest = [...data].reverse().slice(-18);
-    if (!latest.length) return '';
-    const width = 360;
-    const height = 90;
-    const scores = latest.map((item) => fuzzyToPercent(item.riskScore) || 0);
-    const max = 100;
-    const min = 0;
-    return scores.map((score, index) => {
-      const x = latest.length === 1 ? width : (index / (latest.length - 1)) * width;
-      const y = height - ((score - min) / (max - min)) * height;
-      return `${x},${y}`;
-    }).join(' ');
-  }, [data]);
-
-  return (
-    <div className="chart-card">
-      <div className="section-title">
-        <div>
-          <p>GRAFIK OUTPUT FUZZY MAMDANI</p>
-          <h3>Nilai output fuzzy realtime</h3>
-        </div>
-        <Activity size={22} />
-      </div>
-      <svg viewBox="0 0 360 90" role="img" aria-label="Grafik skor risiko fuzzy">
-        <line x1="0" y1="54" x2="360" y2="54" />
-        <line x1="0" y1="27" x2="360" y2="27" />
-        {points ? <polyline points={points} /> : null}
-      </svg>
-      <div className="chart-labels">
-        <span>0,00 Bahaya</span>
-        <span>0,40 Waspada</span>
-        <span>0,70 Normal</span>
-        <span>1,00</span>
-      </div>
-    </div>
-  );
-}
-
 function fuzzyScore01(value) {
   const numericValue = Number(value);
 
@@ -171,10 +130,6 @@ function fuzzyStatusFromScore(value) {
   return 'NORMAL';
 }
 
-function fuzzyToPercent(value) {
-  const score = fuzzyScore01(value);
-  return score === null ? 0 : score * 100;
-}
 
 const FUZZY_MEMBERSHIP_CONFIG = {
   bpm: {
@@ -1599,10 +1554,6 @@ return () => {
       </section>
 
       <FuzzyMembershipViewer latest={latest} />
-
-      <section className="content-grid">
-        <MiniChart data={history} />
-      </section>
 
       <section className="table-card">
         <div className="section-title">
