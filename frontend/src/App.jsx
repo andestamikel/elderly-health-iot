@@ -70,6 +70,32 @@ function numberValue(value, suffix = '') {
   return `${value}${suffix}`;
 }
 
+
+function isValidRealtimeReading(reading) {
+  if (!reading || typeof reading !== 'object') return false;
+
+  const temperature = Number(reading.temperature);
+  const heartRate = Number(reading.heartRate);
+  const spo2 = Number(reading.spo2);
+
+  return (
+    Number.isFinite(temperature) &&
+    Number.isFinite(heartRate) &&
+    Number.isFinite(spo2) &&
+    temperature >= 25 &&
+    temperature <= 45 &&
+    heartRate >= 20 &&
+    heartRate <= 220 &&
+    spo2 >= 50 &&
+    spo2 <= 100
+  );
+}
+
+function readingTimestamp(reading) {
+  const parsed = Date.parse(reading?.time);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function MetricCard({ icon: Icon, title, value, unit, helper, danger }) {
   return (
     <div className={`metric-card ${danger ? 'metric-danger' : ''}`}>
@@ -1079,6 +1105,7 @@ export default function App() {
     notes: ''
   });
   const selectedSessionRef = useRef(null);
+  const lastAcceptedReadingRef = useRef({ id: null, time: 0 });
 
   const selectedTheme = themes.find((item) => item.id === theme) || themes[0];
   const currentFuzzyVisualization = useMemo(
@@ -1142,16 +1169,35 @@ useEffect(() => {
 
       if (readingsRes.ok) {
         const readings = await readingsRes.json();
-        setHistory(Array.isArray(readings) ? readings : []);
-        setLatest(Array.isArray(readings) && readings.length ? readings[0] : null);
+        const validReadings = Array.isArray(readings)
+          ? readings.filter(isValidRealtimeReading)
+          : [];
+
+        setHistory(validReadings);
+
+        if (validReadings.length) {
+          const newest = validReadings[0];
+          lastAcceptedReadingRef.current = {
+            id: newest.id ?? null,
+            time: readingTimestamp(newest)
+          };
+          setLatest(newest);
+        }
+
         return;
       }
 
       const latestRes = await fetch(`${API_URL}/api/latest`);
       const latestData = await latestRes.json();
 
-      setLatest(latestData);
-      setHistory(latestData ? [latestData] : []);
+      if (isValidRealtimeReading(latestData)) {
+        lastAcceptedReadingRef.current = {
+          id: latestData.id ?? null,
+          time: readingTimestamp(latestData)
+        };
+        setLatest(latestData);
+        setHistory([latestData]);
+      }
     } catch (error) {
       console.error('Load data error:', error);
 
@@ -1159,8 +1205,14 @@ useEffect(() => {
         const latestRes = await fetch(`${API_URL}/api/latest`);
         const latestData = await latestRes.json();
 
-        setLatest(latestData);
-        setHistory(latestData ? [latestData] : []);
+        if (isValidRealtimeReading(latestData)) {
+          lastAcceptedReadingRef.current = {
+            id: latestData.id ?? null,
+            time: readingTimestamp(latestData)
+          };
+          setLatest(latestData);
+          setHistory([latestData]);
+        }
       } catch (fallbackError) {
         console.error('Fallback latest error:', fallbackError);
       }
@@ -1177,7 +1229,34 @@ useEffect(() => {
   socket.on('connect', () => setConnected(true));
   socket.on('disconnect', () => setConnected(false));
 const applyReading = (reading) => {
-  if (!reading) return;
+  // Jangan izinkan payload kosong, parsial, atau nilai 0 sesaat
+  // menggantikan data valid terakhir di dashboard.
+  if (!isValidRealtimeReading(reading)) {
+    console.warn('Reading realtime diabaikan karena tidak valid:', reading);
+    return;
+  }
+
+  const incomingId = reading.id ?? null;
+  const incomingTime = readingTimestamp(reading);
+  const lastAccepted = lastAcceptedReadingRef.current;
+
+  // Abaikan duplikat dan hasil polling yang lebih lama daripada data Socket.IO.
+  if (
+    incomingId !== null &&
+    lastAccepted.id !== null &&
+    String(incomingId) === String(lastAccepted.id)
+  ) {
+    return;
+  }
+
+  if (incomingTime > 0 && lastAccepted.time > 0 && incomingTime < lastAccepted.time) {
+    return;
+  }
+
+  lastAcceptedReadingRef.current = {
+    id: incomingId,
+    time: incomingTime || Date.now()
+  };
 
   setLatest(reading);
 
@@ -1204,6 +1283,10 @@ socket.on('latest', applyReading);
 
 // Cadangan jika Socket.IO terlambat atau terputus
 const refreshTimer = window.setInterval(async () => {
+  // Socket.IO adalah jalur utama. Polling hanya dipakai saat socket terputus
+  // agar dua sumber data tidak saling menimpa dan membuat tampilan berkedip.
+  if (socket.connected) return;
+
   try {
     const response = await fetch(
       `${API_URL}/api/latest?t=${Date.now()}`,
