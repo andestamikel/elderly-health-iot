@@ -1,9 +1,5 @@
-/*
-  Penataan dashboard setelah indikator baterai dihapus.
-  File ini sengaja dipisahkan agar styles.css utama tidak perlu diganti.
-*/
 
-/* Tiga kartu sensor memenuhi satu baris pada layar desktop. */
+/* Penataan dashboard setelah indikator baterai dihapus. */
 .dashboard-shell .metric-grid {
   display: grid !important;
   grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
@@ -17,7 +13,6 @@
   height: 100%;
 }
 
-/* Grafik fuzzy menggunakan seluruh lebar yang tersedia. */
 .dashboard-shell .content-grid {
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) !important;
@@ -35,7 +30,6 @@
   width: 100%;
 }
 
-/* Tablet: dua kartu di baris pertama, SpO2 memenuhi baris kedua. */
 @media (max-width: 900px) {
   .dashboard-shell .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
@@ -46,7 +40,6 @@
   }
 }
 
-/* HP: semua kartu satu kolom. */
 @media (max-width: 640px) {
   .dashboard-shell .metric-grid {
     grid-template-columns: minmax(0, 1fr) !important;
@@ -55,9 +48,5 @@
 
   .dashboard-shell .metric-grid .metric-card:last-child {
     grid-column: auto;
-  }
-
-  .dashboard-shell .content-grid {
-    grid-template-columns: minmax(0, 1fr) !important;
   }
 }
